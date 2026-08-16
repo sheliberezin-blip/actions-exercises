@@ -1,0 +1,17 @@
+name: Hello World
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: self-hosted # ← במקום ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Hello from my VM
+        run: |
+          echo "Running on my own server!"
+          hostname
+          whoami
