@@ -1,10 +1,23 @@
-name: Hello World
+name: Hello Workflow
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
 
+jobs:
+  hello:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Say hello
+        run: echo "Hello from GitHub Actions!"
+
+      - name: Print date and time
+        run: date
+
+      - name: Print branch name
+        run: echo "Branch: ${{ github.ref_name }}"name: Hello World
+ 
 jobs:
   test:
     runs-on: self-hosted # ← במקום ubuntu-latest
