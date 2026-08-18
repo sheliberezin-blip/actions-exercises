@@ -1,0 +1,81 @@
+name: CI/CD - Node + PostgreSQL + Redis + Nginx
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: project4-deploy
+  cancel-in-progress: false
+
+jobs:
+  build-test-deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build images (no cache)
+        run: docker compose build --no-cache
+
+      - name: Bring stack up for testing
+        run: docker compose up -d
+
+      - name: Wait for all services to be healthy
+        run: |
+          echo "Waiting for services to report healthy..."
+          for i in $(seq 1 30); do
+            unhealthy=$(docker compose ps --format json | \
+              python3 -c "
+import sys, json
+count = 0
+for line in sys.stdin:
+    line = line.strip()
+    if not line:
+        continue
+    c = json.loads(line)
+    health = c.get('Health', '')
+    if health and health != 'healthy':
+        count += 1
+print(count)
+")
+            if [ "$unhealthy" = "0" ]; then
+              echo "All services healthy."
+              break
+            fi
+            echo "Still waiting ($i/30)..."
+            sleep 3
+          done
+          docker compose ps
+
+      - name: Test - GET /api/health
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/api/health)
+          echo "Status: $status"
+          [ "$status" = "200" ]
+
+      - name: Test - GET /api/items
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/api/items)
+          echo "Status: $status"
+          [ "$status" = "200" ]
+
+      - name: Test - GET / (home page)
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/)
+          echo "Status: $status"
+          [ "$status" = "200" ]
+
+      - name: Print logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Deploy - keep stack running on the server
+        if: success()
+        run: docker compose up -d
+
+      - name: Cleanup (always runs, including on failure)
+        if: always()
+        run: docker compose down -v
+        

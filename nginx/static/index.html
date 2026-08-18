@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Project 4 — Node.js + PostgreSQL + Redis</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: #0d1117;
+      color: #c9d1d9;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .container { max-width: 720px; width: 100%; padding: 2rem; }
+    h1 { font-size: 1.9rem; color: #58a6ff; margin-bottom: .2rem; }
+    .subtitle { color: #8b949e; margin-bottom: 2rem; font-size: .9rem; }
+    .badges { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+    .badge {
+      font-size: .75rem; padding: 3px 10px; border-radius: 12px; font-weight: 600;
+    }
+    .badge.node  { background: #1a3d0f; color: #7ee787; }
+    .badge.pg    { background: #0d2f4f; color: #58a6ff; }
+    .badge.redis { background: #4f0d0d; color: #ff7b72; }
+    .badge.nginx { background: #3d2b0f; color: #ffa657; }
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+    .card h2 { color: #e6edf3; font-size: 1rem; margin-bottom: .75rem; }
+    .row { display: flex; gap: .5rem; margin-bottom: .75rem; }
+    input[type="text"] {
+      flex: 1;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: .45rem .75rem;
+      color: #c9d1d9;
+      font-size: .9rem;
+    }
+    button {
+      background: #238636;
+      color: #fff;
+      border: none;
+      padding: .45rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: .9rem;
+      white-space: nowrap;
+    }
+    button:hover { background: #2ea043; }
+    button.secondary {
+      background: #21262d;
+      border: 1px solid #30363d;
+    }
+    button.secondary:hover { background: #30363d; }
+    button.danger { background: #b62324; }
+    button.danger:hover { background: #d73a3a; }
+    ul { list-style: none; }
+    li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: .5rem .75rem;
+      border-bottom: 1px solid #21262d;
+      font-size: .9rem;
+    }
+    li:last-child { border-bottom: none; }
+    .item-name { color: #e6edf3; }
+    .item-meta { color: #8b949e; font-size: .75rem; margin-right: .5rem; }
+    .empty { color: #8b949e; text-align: center; padding: 1rem; }
+    pre {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: .75rem;
+      font-family: monospace;
+      font-size: .8rem;
+      color: #a5d6ff;
+      white-space: pre-wrap;
+      margin-top: .5rem;
+      min-height: 36px;
+    }
+    pre.error { color: #f85149; border-color: #f85149; }
+    .cache-hit  { color: #7ee787; }
+    .cache-miss { color: #ffa657; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>🐳 Project 4</h1>
+  <p class="subtitle">Node.js + PostgreSQL + Redis + Nginx</p>
+
+  <div class="badges">
+    <span class="badge node">Node.js 20</span>
+    <span class="badge pg">PostgreSQL 16</span>
+    <span class="badge redis">Redis 7</span>
+    <span class="badge nginx">Nginx</span>
+  </div>
+
+  <!-- Health & Cache Stats -->
+  <div class="card">
+    <h2>בדיקות מערכת</h2>
+    <div class="row">
+      <button class="secondary" onclick="checkHealth()">🩺 Health</button>
+      <button class="secondary" onclick="checkCacheStats()">📊 Cache Stats</button>
+    </div>
+    <pre id="sys-result">לחץ לבדיקה...</pre>
+  </div>
+
+  <!-- Items -->
+  <div class="card">
+    <h2>פריטים</h2>
+    <div class="row">
+      <input type="text" id="new-item" placeholder="שם פריט חדש..." />
+      <button onclick="addItem()">+ הוסף</button>
+      <button class="secondary" onclick="loadItems()">🔄 טען</button>
+    </div>
+    <ul id="items-list"><li class="empty">לחץ "טען" לטעינת הפריטים</li></ul>
+  </div>
+</div>
+
+<script>
+  async function api(path, opts = {}) {
+    const res = await fetch('/api' + path, opts);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  }
+
+  async function checkHealth() {
+    const el = document.getElementById('sys-result');
+    try {
+      const data = await api('/health');
+      el.className = '';
+      el.textContent = JSON.stringify(data, null, 2);
+    } catch (e) {
+      el.className = 'error';
+      el.textContent = 'שגיאה: ' + e.message;
+    }
+  }
+
+  async function checkCacheStats() {
+    const el = document.getElementById('sys-result');
+    try {
+      const data = await api('/cache-stats');
+      el.className = '';
+      el.textContent = JSON.stringify(data, null, 2);
+    } catch (e) {
+      el.className = 'error';
+      el.textContent = 'שגיאה: ' + e.message;
+    }
+  }
+
+  async function loadItems() {
+    const ul = document.getElementById('items-list');
+    ul.innerHTML = '<li class="empty">טוען...</li>';
+    try {
+      const items = await api('/items');
+      if (!items.length) {
+        ul.innerHTML = '<li class="empty">אין פריטים</li>';
+        return;
+      }
+      ul.innerHTML = items.map(item => `
+        <li>
+          <span>
+            <span class="item-name">${item.name}</span>
+            <span class="item-meta">#${item.id} · ${new Date(item.created_at).toLocaleString('he-IL')}</span>
+          </span>
+          <button class="danger" onclick="deleteItem(${item.id})">מחק</button>
+        </li>`).join('');
+    } catch (e) {
+      ul.innerHTML = `<li class="empty" style="color:#f85149">שגיאה: ${e.message}</li>`;
+    }
+  }
+
+  async function addItem() {
+    const input = document.getElementById('new-item');
+    const name  = input.value.trim();
+    if (!name) return;
+    try {
+      await api('/items/' + encodeURIComponent(name), { method: 'POST' });
+      input.value = '';
+      loadItems();
+    } catch (e) {
+      alert('שגיאה: ' + e.message);
+    }
+  }
+
+  async function deleteItem(id) {
+    try {
+      await api('/items/' + id, { method: 'DELETE' });
+      loadItems();
+    } catch (e) {
+      alert('שגיאה: ' + e.message);
+    }
+  }
+
+  document.getElementById('new-item')
+    .addEventListener('keydown', e => { if (e.key === 'Enter') addItem(); });
+</script>
+</body>
+</html>
