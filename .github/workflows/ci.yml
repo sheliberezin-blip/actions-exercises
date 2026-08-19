@@ -26,28 +26,15 @@ jobs:
         run: |
           echo "Waiting for services to report healthy..."
           for i in $(seq 1 30); do
-            unhealthy=$(docker compose ps --format json | \
-              python3 -c "
-import sys, json
-count = 0
-for line in sys.stdin:
-    line = line.strip()
-    if not line:
-        continue
-    c = json.loads(line)
-    health = c.get('Health', '')
-    if health and health != 'healthy':
-        count += 1
-print(count)
-")
-            if [ "$unhealthy" = "0" ]; then
+            docker compose ps
+            unhealthy=$(docker compose ps | grep -E "starting|unhealthy" | wc -l)
+            if [ "$unhealthy" -eq 0 ]; then
               echo "All services healthy."
               break
             fi
             echo "Still waiting ($i/30)..."
             sleep 3
           done
-          docker compose ps
 
       - name: Test - GET /api/health
         run: |
@@ -78,4 +65,3 @@ print(count)
       - name: Cleanup (always runs, including on failure)
         if: always()
         run: docker compose down -v
-        
