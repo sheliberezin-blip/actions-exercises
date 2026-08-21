@@ -62,6 +62,6 @@ jobs:
         if: success()
         run: docker compose up -d
 
-      - name: Cleanup (always runs, including on failure)
-        if: always()
+      - name: Cleanup on failure only
+        if: failure()
         run: docker compose down -v
